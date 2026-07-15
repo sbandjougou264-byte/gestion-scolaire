@@ -6,7 +6,49 @@ import io
 from flask import Flask, render_template_string, request, redirect, url_for, flash, session, make_response
 from werkzeug.security import generate_password_hash, check_password_hash
 
+# 1. INITIALISATION DE L'APP (D'ABORD !)
 app = Flask(__name__)
+
+# 2. CONFIGURATION
+app.secret_key = os.environ.get("FLASK_SECRET_KEY", "systeme_gestion_scolaire_secret_key_2026_secure_hash")
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,  
+    SESSION_COOKIE_SAMESITE='Lax',  
+    PERMANENT_SESSION_LIFETIME=1800 
+)
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = "/var/data" if os.path.exists("/var/data") else BASE_DIR
+DB_NAME = os.path.join(DATA_DIR, "gestion.db")
+
+# 3. DÉFINITION DE LA FONCTION
+def init_db():
+    try:
+        conn = sqlite3.connect(DB_NAME)
+        cursor = conn.cursor()
+        cursor.execute("PRAGMA foreign_keys = ON;")
+        
+        # ... (Gardez ici tout votre code de création de tables SQL que vous aviez) ...
+        # (Table config_site, sessions_eval, classes, eleves, etc...)
+        
+        conn.commit()
+        conn.close()
+        print("Base de données initialisée avec succès.")
+    except sqlite3.Error as e:
+        print(f"Erreur d'initialisation de la base : {e}")
+
+# 4. APPEL DU CONTEXTE (Maintenant 'app' existe, cela fonctionnera !)
+with app.app_context():
+    init_db()
+
+# 5. VOS ROUTES (Mettez vos @app.route ici ensuite)
+@app.route('/')
+def home():
+    return "Application en ligne !"
+
+if __name__ == '__main__':
+    app.run(debug=True)
+# Dans app.py, juste après avoir défini app = Flask(__name__)
 
 # =====================================================================
 # CONFIGURATION DE SÉCURITÉ
@@ -23,135 +65,11 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Si l'application tourne sur Render avec un disque monté dans /var/data, on utilise ce dossier permanent
 DATA_DIR = "/var/data" if os.path.exists("/var/data") else BASE_DIR
-DB_NAME = os.path.join(DATA_DIR, "gestion.db")
+DB_NAME = os.path.join(BASE_DIR, "gestion.db")
 
 # =====================================================================
 # INITIALISATION DE LA BASE DE DONNÉES
 # =====================================================================
-def init_db():
-    try:
-        conn = sqlite3.connect(DB_NAME)
-        cursor = conn.cursor()
-        cursor.execute("PRAGMA foreign_keys = ON;")
-        
-        # Table de configuration pour stocker le titre personnalisé
-        cursor.execute("""
-        CREATE TABLE IF NOT EXISTS config_site (
-            cle TEXT PRIMARY KEY,
-            valeur TEXT NOT NULL
-        )""")
-        
-        # Table des sessions temporaires (Mois / Trimestre)
-        cursor.execute("""
-        CREATE TABLE IF NOT EXISTS sessions_eval (
-            id_session INTEGER PRIMARY KEY AUTOINCREMENT,
-            nom_session TEXT NOT NULL,
-            statut TEXT DEFAULT 'ACTIVE'
-        )""")
-
-        cursor.execute("""
-        CREATE TABLE IF NOT EXISTS classes (
-            id_classe INTEGER PRIMARY KEY AUTOINCREMENT,
-            nom_classe TEXT NOT NULL,
-            niveau TEXT NOT NULL
-        )""")
-        
-        # Table élèves intégrant le session_id
-        cursor.execute("""
-        CREATE TABLE IF NOT EXISTS eleves (
-            id_eleve INTEGER PRIMARY KEY AUTOINCREMENT,
-            nom TEXT NOT NULL,
-            prenom TEXT NOT NULL,
-            date_naissance TEXT,
-            classe_id INTEGER,
-            session_id INTEGER,
-            FOREIGN KEY (classe_id) REFERENCES classes(id_classe) ON DELETE SET NULL,
-            FOREIGN KEY (session_id) REFERENCES sessions_eval(id_session) ON DELETE CASCADE
-        )""")
-        
-        cursor.execute("""
-        CREATE TABLE IF NOT EXISTS enseignants (
-            id_ens INTEGER PRIMARY KEY AUTOINCREMENT,
-            nom TEXT NOT NULL,
-            prenom TEXT NOT NULL,
-            matiere TEXT NOT NULL,
-            username TEXT UNIQUE DEFAULT NULL,
-            password_hash TEXT DEFAULT NULL
-        )""")
-
-        cursor.execute("""
-        CREATE TABLE IF NOT EXISTS cours (
-            id_cours INTEGER PRIMARY KEY AUTOINCREMENT,
-            id_classe INTEGER,
-            id_enseignant INTEGER,
-            matiere TEXT NOT NULL,
-            coefficient INTEGER DEFAULT 1,
-            FOREIGN KEY (id_classe) REFERENCES classes(id_classe) ON DELETE CASCADE,
-            FOREIGN KEY (id_enseignant) REFERENCES enseignants(id_ens) ON DELETE CASCADE
-        )""")
-        
-        cursor.execute("""
-        CREATE TABLE IF NOT EXISTS notes (
-            id_note INTEGER PRIMARY KEY AUTOINCREMENT,
-            id_eleve INTEGER,
-            id_cours INTEGER,
-            note REAL NOT NULL CHECK(note >= 0 AND note <= 20),
-            date TEXT,
-            FOREIGN KEY (id_eleve) REFERENCES eleves(id_eleve) ON DELETE CASCADE,
-            FOREIGN KEY (id_cours) REFERENCES cours(id_cours) ON DELETE CASCADE
-        )""")
-        
-        cursor.execute("""
-        CREATE TABLE IF NOT EXISTS admin_account (
-            username TEXT PRIMARY KEY,
-            password_hash TEXT NOT NULL
-        )""")
-        
-        conn.commit()
-        
-        # Titre par défaut dans la configuration
-        cursor.execute("SELECT COUNT(*) FROM config_site WHERE cle = 'titre_onglets'")
-        if cursor.fetchone()[0] == 0:
-            cursor.execute("INSERT INTO config_site VALUES ('titre_onglets', '📁 Choisissez l''onglet du mois / trimestre à consulter :')")
-            conn.commit()
-        
-        # Compte admin par défaut
-        cursor.execute("SELECT COUNT(*) FROM admin_account")
-        if cursor.fetchone()[0] == 0:
-            cursor.execute("INSERT INTO admin_account VALUES (?, ?)", ("admin", generate_password_hash("admin123")))
-            conn.commit()
-
-        # Première session si vide
-        cursor.execute("SELECT COUNT(*) FROM sessions_eval")
-        if cursor.fetchone()[0] == 0:
-            cursor.execute("INSERT INTO sessions_eval (nom_session, statut) VALUES (?, ?)", ("Juin 2026", "ACTIVE"))
-            conn.commit()
-
-        # Insertion des données de démonstration initiales si vide
-        cursor.execute("SELECT COUNT(*) FROM classes")
-        if cursor.fetchone()[0] == 0:
-            cursor.executemany("INSERT INTO classes (nom_classe, niveau) VALUES (?, ?)", [
-                ("Licence 2 - Énergie Solaire", "L2"),
-                ("Licence 2 - Option B", "L2")
-            ])
-            cursor.executemany("INSERT INTO eleves (nom, prenom, date_naissance, classe_id, session_id) VALUES (?, ?, ?, ?, 1)", [
-                ("TRAORE", "Mariam", "12/05/2004", 1),
-                ("DIARRA", "Adama", "23/09/2003", 1),
-                ("COULIBALY", "Oumar", "05/11/2004", 1)
-            ])
-            cursor.execute("INSERT INTO enseignants (id_ens, nom, prenom, matiere, username, password_hash) VALUES (1, 'KONE', 'Ibrahim', 'Mathématiques', 'prof_math', ?)", (generate_password_hash("math123"),))
-            cursor.execute("INSERT INTO enseignants (id_ens, nom, prenom, matiere, username, password_hash) VALUES (2, 'SANOGO', 'Awa', 'Biologie', 'prof_bio', ?)", (generate_password_hash("bio123"),))
-            cursor.execute("INSERT INTO cours (id_cours, id_classe, id_enseignant, matiere, coefficient) VALUES (1, 1, 1, 'Mathématiques', 3)")
-            cursor.execute("INSERT INTO cours (id_cours, id_classe, id_enseignant, matiere, coefficient) VALUES (2, 1, 2, 'Biologie', 2)")
-            cursor.executemany("INSERT INTO notes (id_eleve, id_cours, note, date) VALUES (?, ?, ?, ?)", [
-                (1, 1, 16.0, "01/06/2026"), (1, 2, 14.0, "01/06/2026"),
-                (2, 1, 11.5, "01/06/2026"), (2, 2, 08.0, "01/06/2026"),
-                (3, 1, 09.0, "01/06/2026"), (3, 2, 12.5, "01/06/2026")
-            ])
-            conn.commit()
-        conn.close()
-    except sqlite3.Error as e:
-        print(f"Erreur d'initialisation de la base : {e}")
 
 # =====================================================================
 # LOGIQUE ET MOTEUR DE CALCULS
