@@ -9,7 +9,7 @@ Bienvenue sur le dépôt officiel du projet de gestion pour le **Complexe Scolai
 ## 🌐 Accès au site
 Pour consulter la version en ligne du site, cliquez sur le lien ci-dessous :
 
-[👉 Accéder au site officiel : Complexe Scolaire Moussa Coulibaly](https://complexe-scolaire-moussa-coulibaly)
+[👉 Accéder au site officiel : Complexe Scolaire Moussa Coulibaly](https://LPMCT:complexe-scolaire-moussa-coulibaly)
 
 ---
 
