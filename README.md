@@ -1,7 +1,3 @@
-# gestion-scolaire
-Projet de gestion scolaire développé avec Flask
-# Gestion Scolaire
-Voici le lien vers mon projet : [Cliquez ici pour voir le projet](https://github.com/sbandjougou264-byte/gestion-scolaire)
 # Système de Gestion Scolaire
 
 Bienvenue sur le dépôt officiel du projet de gestion pour le **Complexe Scolaire Moussa Coulibaly**.
@@ -9,7 +5,7 @@ Bienvenue sur le dépôt officiel du projet de gestion pour le **Complexe Scolai
 ## 🌐 Accès au site
 Pour consulter la version en ligne du site, cliquez sur le lien ci-dessous :
 
-[👉 Accéder au site officiel : Complexe Scolaire Moussa Coulibaly](https://LPMCT:complexe-scolaire-moussa-coulibaly)
+[👉 Accéder au site officiel : Complexe Scolaire Moussa Coulibaly](https://complexe-scolaire-moussa-coulibaly)
 
 ---
 
